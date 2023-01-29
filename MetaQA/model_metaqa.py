@@ -1,11 +1,12 @@
-import torch
-import torch.nn as nn
+import mindspore
+import mindspore.nn as nn
+import mindspore.ops.operations as P
 import math
 
 from utils.BiGRU import GRU, BiGRU
 from .Knowledge_graph import KnowledgeGraph
 
-class GFC(nn.Module):
+class GFC(nn.Cell):
     def __init__(self, args, dim_word, dim_hidden, vocab):
         super().__init__()
         self.args = args
@@ -20,23 +21,23 @@ class GFC(nn.Module):
         self.question_encoder = BiGRU(dim_word, dim_hidden, num_layers=1, dropout=0.2)
 
         self.word_embeddings = nn.Embedding(num_words, dim_word)
-        self.word_dropout = nn.Dropout(0.2)
+        self.word_dropout = nn.Dropout(keep_prob=0.8)
         self.step_encoders = []
         for i in range(self.num_steps):
-            m = nn.Sequential(
-                nn.Linear(dim_hidden, dim_hidden),
-            )
+            m = nn.SequentialCell([
+                nn.Dense(in_channels=dim_hidden, out_channels=dim_hidden),
+            ])
             self.step_encoders.append(m)
             self.add_module('step_encoders_{}'.format(i), m)
-        self.key_layer = nn.Linear(dim_hidden, dim_hidden)
-        self.rel_classifier = nn.Linear(dim_hidden, num_relations)
-        self.hop_att_layer = nn.Sequential(
-            nn.Linear(dim_hidden, 1)
-        )
-        self.high_way = nn.Sequential(
-            nn.Linear(dim_hidden, dim_hidden),
+        self.key_layer = nn.Dense(in_channels=dim_hidden, out_channels=dim_hidden)
+        self.rel_classifier = nn.Dense(in_channels=dim_hidden, out_channels=num_relations)
+        self.hop_att_layer = nn.SequentialCell([
+            nn.Dense(in_channels=dim_hidden, out_channels=1)
+        ])
+        self.high_way = nn.SequentialCell([
+            nn.Dense(in_channels=dim_hidden, out_channels=dim_hidden),
             nn.Sigmoid()
-        )
+        ])
 
     def follow(self, e, r):
         x = torch.sparse.mm(self.kg.Msubj, e.t()) * torch.sparse.mm(self.kg.Mrel, r.t())
@@ -50,15 +51,15 @@ class GFC(nn.Module):
                 .unsqueeze(0).expand(batch_size, max_len)
                 .lt(lengths.unsqueeze(1)))
 
-    def forward(self, questions, e_s, answers=None, hop=None):
-        question_lens = questions.size(1) - questions.eq(0).long().sum(dim=1)  # 0 means <PAD>
+    def construct(self, questions, e_s, answers=None, hop=None):
+        question_lens = P.Shape()(questions)[1] - questions.eq(0).long().sum(dim=1)  # 0 means <PAD>
         q_word_emb = self.word_dropout(self.word_embeddings(questions))  # [bsz, max_q, dim_hidden]
         q_word_h, q_embeddings, q_hn = self.question_encoder(q_word_emb,
                                                              question_lens)  # [bsz, max_q, dim_h], [bsz, dim_h], [num_layers, bsz, dim_h]
 
         device = q_word_h.device
-        bsz = q_word_h.size(0)
-        dim_h = q_word_h.size(-1)
+        bsz = P.Shape()(q_word_h)[0]
+        dim_h = P.Shape()(q_word_h)[-1]
         last_e = e_s
         word_attns = []
         rel_probs = []
@@ -115,7 +116,7 @@ class GFC(nn.Module):
                 prev_prev_ent_prob = ent_probs[-2] if len(ent_probs) >= 2 else e_s
                 # in our vocabulary, indices of inverse relations are adjacent. e.g., director:0, director_inv:1
                 m = torch.zeros((bsz, 1)).to(device)
-                m[(torch.abs(prev_rel - curr_rel) == 1) & (torch.remainder(torch.min(prev_rel, curr_rel), 2) == 0)] = 1
+                m[(P.Abs()(prev_rel - curr_rel) == 1) & (torch.remainder(torch.min(prev_rel, curr_rel), 2) == 0)] = 1
                 ent_m = m.float() * prev_prev_ent_prob.gt(0.9).float()
                 last_e = (1 - ent_m) * last_e
 
@@ -130,7 +131,7 @@ class GFC(nn.Module):
 
         if not self.training:
 
-            hop_att_tmp = hop_attn.squeeze()
+            hop_att_tmp = P.ReduceMean(None)(hop_attn)
             loc = torch.argmax(hop_att_tmp, dim=-1)
             mask_1hop = 1 - hop_res[:, 0].gt(0.0).float() * loc.gt(1.0).float().unsqueeze(-1)
             discount_1hop = mask_1hop * 0.1 + 0.9 
@@ -147,11 +148,11 @@ class GFC(nn.Module):
             last_e = torch.sum(hop_res * hop_attn, dim=1)  # [bsz, num_ent]
             # Distance loss
             weight = answers * 9 + 1
-            loss_score = torch.mean(weight * torch.pow(last_e - answers, 2))
+            loss_score = torch.mean(weight * P.Pow()(last_e - answers, 2))
             loss = {'loss_score': loss_score}
 
             if self.aux_hop:
-                loss_hop = nn.CrossEntropyLoss()(hop_logit.squeeze(), hop - 1)
+                loss_hop = nn.CrossEntropyLoss()(P.ReduceMean(None)(hop_logit), hop - 1)
                 loss['loss_hop'] = 0.01 * loss_hop
 
             return loss

@@ -1,11 +1,12 @@
-import torch
-import torch.nn as nn
+import mindspore
+import mindspore.nn as nn
+import mindspore.ops.operations as P
 import math
 from transformers import AutoModel
 from transformers import RobertaModel, BertModel
 
 
-class GFC(nn.Module):
+class GFC(nn.Cell):
     def __init__(self, args, ent2id, rel2id, triples):
         super().__init__()
         self.args = args
@@ -32,23 +33,22 @@ class GFC(nn.Module):
         except ValueError as e:
             raise e
         dim_hidden = self.bert_encoder.config.hidden_size
-        self.rel_classifier = nn.Linear(dim_hidden, num_relations)
-        self.key_layer = nn.Linear(dim_hidden, dim_hidden)
-        self.hop_att_layer = nn.Sequential(
-            nn.Linear(dim_hidden, 1)
-            # nn.Tanh()
-        )
+        self.rel_classifier = nn.Dense(in_channels=dim_hidden, out_channels=num_relations)
+        self.key_layer = nn.Dense(in_channels=dim_hidden, out_channels=dim_hidden)
+        self.hop_att_layer = nn.SequentialCell([
+            nn.Dense(in_channels=dim_hidden, out_channels=1)
+        ])
 
-        self.high_way = nn.Sequential(
-            nn.Linear(dim_hidden, dim_hidden),
+        self.high_way = nn.SequentialCell([
+            nn.Dense(in_channels=dim_hidden, out_channels=dim_hidden),
             nn.Sigmoid()
-        )
+        ])
 
     def follow(self, e, r):
         x = torch.sparse.mm(self.Msubj, e.t()) * torch.sparse.mm(self.Mrel, r.t())
         return torch.sparse.mm(self.Mobj.t(), x).t() # [bsz, Esize]
 
-    def forward(self, heads, questions, answers=None, entity_range=None):
+    def construct(self, heads, questions, answers=None, entity_range=None):
         q = self.bert_encoder(**questions)
         q_embeddings, q_word_h = q.pooler_output, q.last_hidden_state # (bsz, dim_h), (bsz, len, dim_h)
 
@@ -114,10 +114,10 @@ class GFC(nn.Module):
                 'word_attns': word_attns,
                 'rel_probs': rel_probs,
                 'ent_probs': ent_probs,
-                'hop_attn': hop_attn.squeeze(2)
+                'hop_attn': P.ReduceMean(2)(hop_attn)
             }
         else:
             weight = answers * 9 + 1 
-            loss = torch.sum(entity_range * weight * torch.pow(last_e - answers, 2)) / torch.sum(entity_range * weight)
+            loss = torch.sum(entity_range * weight * P.Pow()(last_e - answers, 2)) / torch.sum(entity_range * weight)
 
             return {'loss': loss}

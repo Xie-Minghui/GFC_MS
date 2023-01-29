@@ -1,5 +1,7 @@
-import torch
+import mindspore
+import mindspore.nn as nn
 import os
+import mindspore.ops.operations as P
 import json
 import pickle
 from collections import defaultdict

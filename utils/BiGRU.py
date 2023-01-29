@@ -1,7 +1,8 @@
-import torch
-import torch.nn as nn
+import mindspore
+import mindspore.nn as nn
+import mindspore.ops.operations as P
 
-class GRU(nn.Module):
+class GRU(nn.Cell):
 
     def __init__(self, dim_word, dim_h, num_layers, dropout = 0.0):
         super().__init__()
@@ -48,7 +49,7 @@ class GRU(nn.Module):
         return results
 
 
-    def forward(self, input, length, h_0=None):
+    def construct(self, input, length, h_0=None):
         """
         Args:
             - input (bsz, len, w_dim)
@@ -58,7 +59,7 @@ class GRU(nn.Module):
             - hidden (bsz, len, dim) : hidden state of each word
             - output (bsz, dim) : sentence embedding
         """
-        bsz, max_len = input.size(0), input.size(1)
+        bsz, max_len = P.Shape()(input)[0], P.Shape()(input)[1]
         sorted_seq_lengths, indices = torch.sort(length, descending=True)
         _, desorted_indices = torch.sort(indices, descending=False)
         input = input[indices]
@@ -81,7 +82,7 @@ class GRU(nn.Module):
 
 
 
-class BiGRU(nn.Module):
+class BiGRU(nn.Cell):
 
     def __init__(self, dim_word, dim_h, num_layers, dropout):
         super().__init__()
@@ -92,7 +93,7 @@ class BiGRU(nn.Module):
                 batch_first=True,
                 bidirectional=True)
 
-    def forward(self, input, length):
+    def construct(self, input, length):
         """
         Args:
             - input (bsz, len, w_dim)
@@ -102,7 +103,7 @@ class BiGRU(nn.Module):
             - output (bsz, dim) : sentence embedding
             - h_n (num_layers * 2, bsz, dim//2)
         """
-        bsz, max_len = input.size(0), input.size(1)
+        bsz, max_len = P.Shape()(input)[0], P.Shape()(input)[1]
         sorted_seq_lengths, indices = torch.sort(length, descending=True)
         _, desorted_indices = torch.sort(indices, descending=False)
         input = input[indices]
@@ -113,7 +114,7 @@ class BiGRU(nn.Module):
         hidden = nn.utils.rnn.pad_packed_sequence(hidden, batch_first=True, total_length=max_len)[0] # (bsz, max_len, h_dim)
         
         output = h_n[-2:, :, :] # (2, bsz, h_dim//2), take the last layer's state
-        output = output.permute(1, 0, 2).contiguous().view(bsz, -1) # (bsz, h_dim), merge forward and backward h_n
+        output = P.Reshape()(P.Transpose()(output, (1, 0, 2,)).contiguous(), (bsz, -1,)) # (bsz, h_dim), merge forward and backward h_n
 
         # recover order
         hidden = hidden[desorted_indices]

@@ -1,11 +1,12 @@
-import torch
-import torch.nn as nn
+import mindspore
+import mindspore.nn as nn
+import mindspore.ops.operations as P
 import math
 # from transformers import AutoModel
 from transformers import RobertaModel, BertModel
 
 
-class GFC(nn.Module):
+class GFC(nn.Cell):
     def __init__(self, args, ent2id, rel2id):
         super().__init__()
         num_relations = len(rel2id)
@@ -26,24 +27,24 @@ class GFC(nn.Module):
 
         self.step_encoders = []
         for i in range(self.num_steps):
-            m = nn.Sequential(
-                nn.Linear(dim_hidden, dim_hidden)
-            )
+            m = nn.SequentialCell([
+                nn.Dense(in_channels=dim_hidden, out_channels=dim_hidden)
+            ])
             self.step_encoders.append(m)
             self.add_module('step_encoders_{}'.format(i), m)
 
-        self.rel_classifier = nn.Linear(dim_hidden, num_relations)
+        self.rel_classifier = nn.Dense(in_channels=dim_hidden, out_channels=num_relations)
 
-        self.hop_att_layer = nn.Sequential(
-            nn.Linear(dim_hidden, 1)
-        )
-        self.high_way = nn.Sequential(
-            nn.Linear(dim_hidden, dim_hidden),
+        self.hop_att_layer = nn.SequentialCell([
+            nn.Dense(in_channels=dim_hidden, out_channels=1)
+        ])
+        self.high_way = nn.SequentialCell([
+            nn.Dense(in_channels=dim_hidden, out_channels=dim_hidden),
             nn.Sigmoid()
-        )
+        ])
 
 
-    def forward(self, heads, questions, answers=None, triples=None, entity_range=None):
+    def construct(self, heads, questions, answers=None, triples=None, entity_range=None):
         q = self.bert_encoder(**questions)
         q_embeddings, q_word_h = q.pooler_output, q.last_hidden_state # (bsz, dim_h), (bsz, len, dim_h)
         device = heads.device
@@ -96,7 +97,7 @@ class GFC(nn.Module):
                 obj_p = sub_p * rel_p
                 new_e.append(
                     torch.index_add(torch.zeros(1, self.num_ents).to(device), 1, obj, obj_p))
-            last_e = torch.cat(new_e, dim=0)
+            last_e = P.Concat(0)(new_e)
 
             # reshape >1 scores to 1 in a differentiable way
             m = last_e.gt(1).float()
@@ -119,10 +120,10 @@ class GFC(nn.Module):
                 'word_attns': word_attns,
                 'rel_probs': rel_probs,
                 'ent_probs': ent_probs,
-                'hop_attn': hop_attn.squeeze(2)
+                'hop_attn': P.ReduceMean(2)(hop_attn)
             }
         else:
             weight = answers * 9 + 1 
-            loss = torch.sum(entity_range * weight * torch.pow(last_e - answers, 2)) / torch.sum(entity_range * weight)
+            loss = torch.sum(entity_range * weight * P.Pow()(last_e - answers, 2)) / torch.sum(entity_range * weight)
 
             return {'loss': loss}

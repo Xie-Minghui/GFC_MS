@@ -2,13 +2,14 @@ import collections
 import os
 import pickle
 from collections import defaultdict
-import torch
-import torch.nn as nn
+import mindspore
+import mindspore.nn as nn
+import mindspore.ops.operations as P
 from utils.misc import *
 import numpy as np
 
 
-class KnowledgeGraph(nn.Module):
+class KnowledgeGraph(nn.Cell):
     def __init__(self, args, vocab):
         super(KnowledgeGraph, self).__init__()
         self.args = args

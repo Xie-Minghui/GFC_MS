@@ -1,7 +1,9 @@
 import json
 import pickle
-import torch
+import mindspore
+import mindspore.nn as nn
 import numpy as np
+import mindspore.ops.operations as P
 from utils.misc import invert_dict
 
 
