@@ -38,8 +38,8 @@ def validate(args, model, data, device, verbose = False):
                 e_score[item[0], item[1]] = 0
 
 
-            scores, idx = torch.max(e_score, dim = 1) # [bsz], [bsz]
-            match_score = torch.gather(answers, 1, idx.unsqueeze(-1)).squeeze().tolist()
+            scores, idx = mindspore.ops.ArgMaxWithValue(axis = 1)(e_score) # [bsz], [bsz]
+            match_score = mindspore.ops.GatherD(answers, 1, idx.unsqueeze(-1)).squeeze().tolist()
 
             for h, m, i in zip(hops, match_score, range(len(hops))):
                 count['all'] += 1
@@ -118,7 +118,7 @@ def main():
     vocab = val_loader.vocab
 
     model = GTA(args, args.dim_word, args.dim_hidden, vocab)
-    missing, unexpected = model.load_state_dict(torch.load(args.ckpt), strict=False)
+    missing, unexpected = model.load_state_dict(mindspore.load_checkpoint(args.ckpt), strict=False)
     if missing:
         print("Missing keys: {}".format("; ".join(missing)))
     if unexpected:

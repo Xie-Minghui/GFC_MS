@@ -13,15 +13,15 @@ from utils.misc import invert_dict
 def collate(batch):
     batch = list(zip(*batch))
     topic_entity, question, answer, entity_range, hops = batch
-    topic_entity = torch.stack(topic_entity)
-    question = {k:torch.cat([q[k] for q in question], dim=0) for k in question[0]}
-    answer = torch.stack(answer)
-    entity_range = torch.stack(entity_range)
-    # hops = torch.stack(hops)
+    topic_entity = mindspore.ops.Stack(topic_entity)
+    question = {k:mindspore.ops.Concat(axis=0)([q[k] for q in question]) for k in question[0]}
+    answer = mindspore.ops.Stack(answer)
+    entity_range = mindspore.ops.Stack(entity_range)
+    # hops = mindspore.ops.Stack(hops)
     return topic_entity, question, answer, entity_range, hops
 
 
-class Dataset(torch.utils.data.Dataset):
+class Dataset(mindspore.dataset.GeneratorDataset):
     def __init__(self, questions, ent2id):
         self.questions = questions
         self.ent2id = ent2id
@@ -37,15 +37,15 @@ class Dataset(torch.utils.data.Dataset):
         return len(self.questions)
 
     def toOneHot(self, indices):
-        indices = torch.LongTensor(indices)
+        indices = mindspore.Tensor(indices)
         vec_len = len(self.ent2id)
-        one_hot = torch.FloatTensor(vec_len)
+        one_hot = mindspore.Tensor(vec_len, mindspore.float32)
         one_hot.zero_()
         one_hot.scatter_(0, indices, 1)
         return one_hot
 
 
-class DataLoader(torch.utils.data.DataLoader):
+class DataLoader(mindspore.dataset):
     def __init__(self, input_dir, fn, bert_name, ent2id, rel2id, batch_size, training=False):
         print('Reading questions from {}'.format(fn))
         try:
@@ -148,7 +148,7 @@ def load_data(input_dir, bert_name, batch_size):
             triples.append((s, p, o))
             p_rev = rel2id[l[1].strip()+'_reverse']
             triples.append((o, p_rev, s))
-        triples = torch.LongTensor(triples)
+        triples = mindspore.Tensor(triples)
 
         train_data = DataLoader(input_dir, os.path.join(input_dir, 'qa_train_webqsp_hop.txt'), bert_name, ent2id, rel2id, batch_size, training=True)
         test_data = DataLoader(input_dir, os.path.join(input_dir, 'qa_test_webqsp_fixed_hop.txt'), bert_name, ent2id, rel2id,

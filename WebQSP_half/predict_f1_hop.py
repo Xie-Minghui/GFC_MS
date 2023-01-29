@@ -30,7 +30,7 @@ def validate(args, model, data, device, verbose=False, thresholds=0.98):
             num_answers = sum(len(x) for x in answer_list)
             num_answers_total += num_answers
             e_score = outputs['e_score'].cpu()
-            e_score_answers = torch.where(e_score >= thresholds)
+            e_score_answers = mindspore.numpy.where(e_score >= thresholds)
             num_pred = e_score_answers[0].shape[0]
             num_answers_pred_total += num_pred
 
@@ -39,8 +39,8 @@ def validate(args, model, data, device, verbose=False, thresholds=0.98):
                 if e_score_answers[1][i].item() in answer_list[e_score_answers[0][i].item()]:
                     TP += 1
             TP_total += TP
-            scores, idx = torch.max(e_score, dim = 1) # [bsz], [bsz]
-            match_score = torch.gather(batch[2], 1, idx.unsqueeze(-1)).squeeze().tolist()
+            scores, idx = mindspore.ops.ArgMaxWithValue(axis = 1)(e_score) # [bsz], [bsz]
+            match_score = mindspore.ops.GatherD(batch[2], 1, idx.unsqueeze(-1)).squeeze().tolist()
             count += len(match_score)
             correct += sum(match_score)
             for i in range(len(match_score)):

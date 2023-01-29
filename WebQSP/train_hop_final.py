@@ -7,9 +7,9 @@ sys.path.append(os.path.abspath(os.path.join(os.getcwd(), '../')))
 # path_abs = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
 path_abs = os.path.abspath(os.path.join(os.getcwd(), '../'))
 print(path_abs)
-import torch
+import mindspore
 import torch.optim as optim
-import torch.nn as nn
+import mindspore.nn as nn
 import argparse
 import shutil
 from tqdm import tqdm
@@ -27,7 +27,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)-8s %(me
 logFormatter = logging.Formatter('%(asctime)s %(levelname)-8s %(message)s')
 rootLogger = logging.getLogger()
 
-torch.set_num_threads(1)  # avoid using multiple cpus
+# torch.set_num_threads(1)  # avoid using multiple cpus
 
 import setproctitle
 
@@ -35,7 +35,7 @@ setproctitle.setproctitle("GFC_WSP")
 
 
 def train(args):
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    device = 'cuda'
     path_abs = '/YourPath/GFC'
     input_dir = path_abs + '/' + args.input_dir
     # input_dir = args.input_dir
@@ -44,7 +44,7 @@ def train(args):
     logging.info("Create model.........")
     model = GFC(args, ent2id, rel2id, triples)
     if not args.ckpt == None:
-        model.load_state_dict(torch.load(args.ckpt))
+        model.load_state_dict(mindspore.load_checkpoint(args.ckpt))
     model = model.to(device)
     # model.triples = model.triples.to(device)
     model.Msubj = model.Msubj.to(device)
@@ -160,10 +160,10 @@ def main():
     for k, v in vars(args).items():
         logging.info(k + ':' + str(v))
 
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
+    # torch.backends.cudnn.deterministic = True
+    # torch.backends.cudnn.benchmark = False
     # set random seed
-    torch.manual_seed(args.seed)
+    mindspore.set_seed(args.seed)
     np.random.seed(args.seed)
 
     train(args)

@@ -13,14 +13,14 @@ from utils.misc import invert_dict
 def collate(batch):
     batch = list(zip(*batch))
     topic_entity, question, answer, triples, entity_range = batch
-    topic_entity = torch.stack(topic_entity)
-    question = {k:torch.cat([q[k] for q in question], dim=0) for k in question[0]}
-    answer = torch.stack(answer)
-    entity_range = torch.stack(entity_range)
+    topic_entity = mindspore.ops.Stack(topic_entity)
+    question = {k:mindspore.ops.Concat(axis=0)([q[k] for q in question]) for k in question[0]}
+    answer = mindspore.ops.Stack(answer)
+    entity_range = mindspore.ops.Stack(entity_range)
     return topic_entity, question, answer, triples, entity_range
 
 
-class Dataset(torch.utils.data.Dataset):
+class Dataset(mindspore.dataset.GeneratorDataset):
     def __init__(self, questions, ent2id):
         self.questions = questions
         self.ent2id = ent2id
@@ -29,7 +29,7 @@ class Dataset(torch.utils.data.Dataset):
         topic_entity, question, answer, triples, entity_range = self.questions[index]
         topic_entity = self.toOneHot(topic_entity)
         answer = self.toOneHot(answer)
-        triples = torch.LongTensor(triples)
+        triples = mindspore.Tensor(triples)
         if triples.dim() == 1:
             triples = triples.unsqueeze(0)
         entity_range = self.toOneHot(entity_range)
@@ -39,7 +39,7 @@ class Dataset(torch.utils.data.Dataset):
         return len(self.questions)
 
     def toOneHot(self, indices):
-        indices = torch.LongTensor(indices)
+        indices = mindspore.Tensor(indices)
         vec_len = len(self.ent2id)
         one_hot = torch.FloatTensor(vec_len)
         one_hot.zero_()
@@ -47,7 +47,7 @@ class Dataset(torch.utils.data.Dataset):
         return one_hot
 
 
-class DataLoader(torch.utils.data.DataLoader):
+class DataLoader(mindspore.dataset):
     def __init__(self, fn, bert_name, ent2id, rel2id, batch_size, add_rev=False, training=False):
         print('Reading questions from {} {}'.format(fn, '(add reverse)' if add_rev else ''))
         # self.tokenizer = AutoTokenizer.from_pretrained(bert_name)

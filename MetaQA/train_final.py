@@ -52,7 +52,7 @@ def train(args):
     model = GFC(args, args.dim_word, args.dim_hidden, vocab)
     model.word_embeddings.weight.data = torch.Tensor(pretrained) 
     if not args.ckpt == None:
-        missing, unexpected = model.load_state_dict(torch.load(args.ckpt), strict=False) 
+        missing, unexpected = model.load_state_dict(mindspore.load_checkpoint(args.ckpt), strict=False)
         if missing:
             logging.info("Missing keys: {}".format("; ".join(missing)))
         if unexpected:
@@ -145,7 +145,7 @@ def test(args):
     model = GFC(args, args.dim_word, args.dim_hidden, vocab)
     model.word_embeddings.weight.data = torch.Tensor(pretrained)
     if not args.ckpt == None:
-        missing, unexpected = model.load_state_dict(torch.load(args.ckpt), strict=False) 
+        missing, unexpected = model.load_state_dict(mindspore.load_checkpoint(args.ckpt), strict=False)
         if missing:
             logging.info("Missing keys: {}".format("; ".join(missing)))
         if unexpected:

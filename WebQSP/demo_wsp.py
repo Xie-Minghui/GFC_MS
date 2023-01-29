@@ -7,11 +7,8 @@ sys.path.append(os.path.abspath(os.path.join(os.getcwd(), '../')))
 # path_abs = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
 path_abs = os.path.abspath(os.path.join(os.getcwd(), '../'))
 print(path_abs)
-import torch
-import torch.optim as optim
-import torch.nn as nn
+import mindspore
 import argparse
-import shutil
 from tqdm import tqdm
 import numpy as np
 import time
@@ -27,14 +24,14 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)-8s %(me
 logFormatter = logging.Formatter('%(asctime)s %(levelname)-8s %(message)s')
 rootLogger = logging.getLogger()
 
-torch.set_num_threads(1)  # avoid using multiple cpus
+# torch.set_num_threads(1)  # avoid using multiple cpus
 
 import setproctitle
 
 setproctitle.setproctitle("GFC_demo") 
 
 def test(args):
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    device = 'cuda'
     path_abs = '/YourPath/GFC'
     input_dir = path_abs + '/' + args.input_dir
     args.ckpt = '/YourPath/GFC/checkpoints/WebQSP/model_wqsp.pt'
@@ -43,7 +40,7 @@ def test(args):
     logging.info("Create model.........")
     model = GFC(args, ent2id, rel2id, triples)
     if not args.ckpt == None:
-        model.load_state_dict(torch.load(args.ckpt))
+        model.load_state_dict(mindspore.load_checkpoint(args.ckpt))
     model = model.to(device)
     # model.triples = model.triples.to(device)
     model.Msubj = model.Msubj.to(device)
@@ -67,11 +64,11 @@ def test(args):
     ]
     # optimizer_grouped_parameters = [{'params':model.parameters(), 'weight_decay': args.weight_decay, 'lr': args.lr}]
     if args.opt == 'adam':
-        optimizer = optim.Adam(optimizer_grouped_parameters)
+        optimizer = mindspore.nn.Adam(optimizer_grouped_parameters)
     elif args.opt == 'radam':
         optimizer = RAdam(optimizer_grouped_parameters)
     elif args.opt == 'sgd':
-        optimizer = optim.SGD(optimizer_grouped_parameters)
+        optimizer = mindspore.nn.SGD(optimizer_grouped_parameters)
     else:
         raise NotImplementedError
     args.warmup_steps = int(t_total * args.warmup_proportion)
@@ -109,7 +106,7 @@ def validate(args, model, data, device, verbose=False, thresholds=0.985):
             num_answers = sum(len(x) for x in answer_list) 
             num_answers_total += num_answers
             e_score = outputs['e_score'].cpu()
-            e_score_answers = torch.where(e_score >= thresholds)
+            e_score_answers = mindspore.numpy.where(e_score >= thresholds)
             num_pred = e_score_answers[0].shape[0]
             num_answers_pred_total += num_pred
 
@@ -122,8 +119,8 @@ def validate(args, model, data, device, verbose=False, thresholds=0.985):
             topic_entities_idx = torch.nonzero(topic_entities)
             for item in topic_entities_idx:
                 e_score[item[0], item[1]] = 0
-            scores, idx = torch.max(e_score, dim=1) # [bsz], [bsz]
-            match_score = torch.gather(batch[2], 1, idx.unsqueeze(-1)).squeeze().tolist()
+            scores, idx = mindspore.ops.ArgMaxWithValue(axis=1)(e_score) # [bsz], [bsz]
+            match_score = mindspore.ops.GatherD(batch[2], 1, idx.unsqueeze(-1)).squeeze().tolist()
             count += len(match_score)
             correct += sum(match_score)
             for i in range(len(match_score)):
@@ -215,10 +212,10 @@ def main():
     for k, v in vars(args).items():
         logging.info(k + ':' + str(v))
 
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
+    # torch.backends.cudnn.deterministic = True
+    # torch.backends.cudnn.benchmark = False
     # set random seed
-    torch.manual_seed(args.seed)
+    mindspore.set_seed(args.seed)
     np.random.seed(args.seed)
 
     test(args)

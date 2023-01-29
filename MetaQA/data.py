@@ -16,12 +16,12 @@ def load_vocab(path):
 
 def collate(batch):
     batch = list(zip(*batch))
-    question, topic_entity, answer = list(map(torch.stack, batch[:3]))
-    hop = torch.LongTensor(batch[3])
+    question, topic_entity, answer = list(map(mindspore.ops.Stack, batch[:3]))
+    hop = mindspore.Tensor(batch[3])
     return question, topic_entity, answer, hop
 
 
-class Dataset(torch.utils.data.Dataset):
+class Dataset(mindspore.dataset.GeneratorDataset):
     def __init__(self, inputs):
         self.questions, self.topic_entities, self.answers, self.hops = inputs
         # print(self.questions.shape)
@@ -29,9 +29,9 @@ class Dataset(torch.utils.data.Dataset):
         # print(self.answers.shape)
 
     def __getitem__(self, index):
-        question = torch.LongTensor(self.questions[index])
-        topic_entity = torch.LongTensor(self.topic_entities[index])
-        answer = torch.LongTensor(self.answers[index])
+        question = mindspore.Tensor(self.questions[index])
+        topic_entity = mindspore.Tensor(self.topic_entities[index])
+        answer = mindspore.Tensor(self.answers[index])
         hop = self.hops[index]
         return question, topic_entity, answer, hop
 
@@ -40,7 +40,7 @@ class Dataset(torch.utils.data.Dataset):
         return len(self.questions)
 
 
-class DataLoader(torch.utils.data.DataLoader):
+class DataLoader(mindspore.dataset):
     def __init__(self, vocab_json, question_pt, batch_size, ratio=1, training=False):
         vocab = load_vocab(vocab_json)
         

@@ -43,7 +43,7 @@ def train(args):
     logging.info("Create model.........")
     model = GCF(args, ent2id, rel2id, triples)
     if not args.ckpt == None:
-        model.load_state_dict(torch.load(args.ckpt))
+        model.load_state_dict(mindspore.load_checkpoint(args.ckpt))
     model = model.to(device)
     # model.triples = model.triples.to(device)
     model.Msubj = model.Msubj.to(device)

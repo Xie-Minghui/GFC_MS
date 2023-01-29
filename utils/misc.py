@@ -1,11 +1,10 @@
 from collections import defaultdict, Counter, deque
-import torch
+import mindspore
 import json
 import pickle
 import numpy as np
-import torch.nn as nn
 import math
-from torch.optim.optimizer import Optimizer
+from mindspore.nn.Optimizer import Optimizer
 import transformers
 
 DUMMY_RELATION = 'DUMMY_RELATION'
@@ -17,13 +16,13 @@ DUMMY_ENTITY_ID = 0
 def batch_device(batch, device):
     res = []
     for x in batch:
-        if isinstance(x, torch.Tensor):
+        if isinstance(x, mindspore.Tensor):
             x = x.to(device)
         elif isinstance(x, (dict, transformers.tokenization_utils_base.BatchEncoding)):
             for k in x:
-                if isinstance(x[k], torch.Tensor):
+                if isinstance(x[k], mindspore.Tensor):
                     x[k] = x[k].to(device)
-        elif isinstance(x, (list, tuple)) and isinstance(x[0], torch.Tensor):
+        elif isinstance(x, (list, tuple)) and isinstance(x[0], mindspore.Tensor):
             x = list(map(lambda i: i.to(device), x))
         res.append(x)
     return res
@@ -36,14 +35,14 @@ def idx_to_one_hot(idx, size):
         one_hot [bsz, size]
     """
     if isinstance(idx, int):
-        one_hot = torch.zeros((size,))
+        one_hot = mindspore.zeros((size,))
         one_hot[idx] = 1
     elif isinstance(idx, list):
-        one_hot = torch.zeros((size,))
+        one_hot = mindspore.zeros((size,))
         for i in idx:
             one_hot[i] = 1
     else:
-        one_hot = torch.FloatTensor(len(idx), size)
+        one_hot = mindspore.Tensor(shape=(len(idx), size), dtype=mindspore.float32)
         one_hot.zero_()
         one_hot.scatter_(1, idx, 1) 
     return one_hot
@@ -105,12 +104,12 @@ class SmoothedValue(object):
 
     @property
     def median(self):
-        d = torch.tensor(list(self.deque))
+        d = mindspore.Tensor(list(self.deque))
         return d.median().item()
 
     @property
     def avg(self):
-        d = torch.tensor(list(self.deque))
+        d = mindspore.Tensor(list(self.deque))
         return d.mean().item()
 
     @property
@@ -125,7 +124,7 @@ class MetricLogger(object):
 
     def update(self, **kwargs):
         for k, v in kwargs.items():
-            if isinstance(v, torch.Tensor):
+            if isinstance(v, mindspore.Tensor):
                 v = v.item()
             assert isinstance(v, (float, int))
             self.meters[k].update(v)

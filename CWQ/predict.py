@@ -6,6 +6,7 @@ from tqdm import tqdm
 from collections import defaultdict
 from utils.misc import batch_device
 
+
 def validate(args, model, data, device, verbose = False):
     model.eval()
     count = 0
@@ -15,8 +16,8 @@ def validate(args, model, data, device, verbose = False):
         for batch in tqdm(data, total=len(data)):
             outputs = model(*batch_device(batch, device)) # [bsz, Esize]
             e_score = outputs['e_score'].cpu()
-            scores, idx = torch.max(e_score, dim = 1) # [bsz], [bsz]
-            match_score = torch.gather(batch[2], 1, idx.unsqueeze(-1)).squeeze().tolist()
+            scores, idx = mindspore.ops.ArgMaxWithValue(axis = 1)(e_score) # [bsz], [bsz]
+            match_score = mindspore.ops.GatherD(batch[2], 1, idx.unsqueeze(-1)).squeeze().tolist()
             count += len(match_score)
             correct += sum(match_score)
 

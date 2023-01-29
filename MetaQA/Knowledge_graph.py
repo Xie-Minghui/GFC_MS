@@ -21,8 +21,8 @@ class KnowledgeGraph(nn.Cell):
         Tsize = Msubj.size()[0]
         Esize = len(self.entity2id)
         Rsize = len(self.relation2id)
-        self.Msubj = torch.sparse.FloatTensor(Msubj.t(), torch.FloatTensor([1] * Tsize), torch.Size([Tsize, Esize]))
-        self.Mobj = torch.sparse.FloatTensor(Mobj.t(), torch.FloatTensor([1] * Tsize), torch.Size([Tsize, Esize]))
-        self.Mrel = torch.sparse.FloatTensor(Mrel.t(), torch.FloatTensor([1] * Tsize), torch.Size([Tsize, Rsize]))
+        self.Msubj = torch.sparse.FloatTensor(Msubj.t(), mindspore.Tensor([1] * Tsize, mindspore.flaot32), torch.Size([Tsize, Esize]))
+        self.Mobj = torch.sparse.FloatTensor(Mobj.t(), mindspore.Tensor([1] * Tsize, mindspore.flaot32), torch.Size([Tsize, Esize]))
+        self.Mrel = torch.sparse.FloatTensor(Mrel.t(), mindspore.Tensor([1] * Tsize, mindspore.float32), torch.Size([Tsize, Rsize]))
         self.num_entities = len(self.entity2id)
  

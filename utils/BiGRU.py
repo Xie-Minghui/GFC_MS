@@ -28,16 +28,16 @@ class GRU(nn.Cell):
         device = h_0.device
         start_id, end_id, pad_id = vocab['<START>'], vocab['<END>'], vocab['<PAD>']
 
-        latest = torch.LongTensor([start_id]*bsz).to(device) # [bsz, ]
+        latest = mindspore.Tensor([start_id]*bsz).to(device) # [bsz, ]
         results = [latest]
         last_h = h_0
-        finished = torch.zeros((bsz,)).bool().to(device) # record whether <END> is produced
+        finished = mindspore.ops.Zeros((bsz,)).bool().to(device) # record whether <END> is produced
         for i in range(max_step-1): # exclude <START>
             word_emb = word_lookup_func(latest).unsqueeze(1) # [bsz, 1, dim_w]
             word_h, last_h = self.forward_one_step(word_emb, last_h) # [bsz, 1, dim_h]
 
             logit = classifier(word_h).squeeze(1) # [bsz, num_func]
-            latest = torch.argmax(logit, dim=1).long() # [bsz, ]
+            latest = mindspore.ops.Argmax(axis=1,output_type=mindspore.dtype.long)(logit) # [bsz, ]
             latest[finished] = pad_id # set to <PAD> after <END>
             results.append(latest)
 
@@ -45,7 +45,7 @@ class GRU(nn.Cell):
             if early_stop and finished.sum().item() == bsz:
                 # print('finished at step {}'.format(i))
                 break
-        results = torch.stack(results, dim=1) # [bsz, max_len']
+        results = mindspore.ops.Stack(results, dim=1) # [bsz, max_len']
         return results
 
 
@@ -60,8 +60,8 @@ class GRU(nn.Cell):
             - output (bsz, dim) : sentence embedding
         """
         bsz, max_len = P.Shape()(input)[0], P.Shape()(input)[1]
-        sorted_seq_lengths, indices = torch.sort(length, descending=True)
-        _, desorted_indices = torch.sort(indices, descending=False)
+        sorted_seq_lengths, indices = mindspore.ops.Sort(escending=True)(length)
+        _, desorted_indices = mindspore.ops.Sort(escending=True)(indices)
         input = input[indices]
         packed_input = nn.utils.rnn.pack_padded_sequence(input, sorted_seq_lengths, batch_first=True)
         if h_0 is None:
@@ -104,8 +104,8 @@ class BiGRU(nn.Cell):
             - h_n (num_layers * 2, bsz, dim//2)
         """
         bsz, max_len = P.Shape()(input)[0], P.Shape()(input)[1]
-        sorted_seq_lengths, indices = torch.sort(length, descending=True)
-        _, desorted_indices = torch.sort(indices, descending=False)
+        sorted_seq_lengths, indices = mindspore.ops.Sort(escending=True)(length)
+        _, desorted_indices = mindspore.ops.Sort(escending=True)(indices)
         input = input[indices]
 
         packed_input = nn.utils.rnn.pack_padded_sequence(input, sorted_seq_lengths.cpu(), batch_first=True)

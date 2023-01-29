@@ -43,7 +43,7 @@ def test(args):
     logging.info("Create model.........")
     model = GFC(args, ent2id, rel2id, triples)
     if not args.ckpt == None:
-        model.load_state_dict(torch.load(args.ckpt))
+        model.load_state_dict(mindspore.load_checkpoint(args.ckpt))
     model = model.to(device)
     model.Msubj = model.Msubj.to(device)
     model.Mobj = model.Mobj.to(device)
@@ -101,7 +101,7 @@ def validate(args, model, data, device, verbose=False, thresholds=0.985):
             num_answers = sum(len(x) for x in answer_list) 
             num_answers_total += num_answers
             e_score = outputs['e_score'].cpu()
-            e_score_answers = torch.where(e_score >= thresholds)
+            e_score_answers = mindspore.numpy.where(e_score >= thresholds)
             num_pred = e_score_answers[0].shape[0]
             num_answers_pred_total += num_pred
 
@@ -114,8 +114,8 @@ def validate(args, model, data, device, verbose=False, thresholds=0.985):
             for item in topic_entities_idx:
                 e_score[item[0], item[1]] = 0
 
-            scores, idx = torch.max(e_score, dim=1) # [bsz], [bsz]
-            match_score = torch.gather(batch[2], 1, idx.unsqueeze(-1)).squeeze().tolist()
+            scores, idx = mindspore.ops.ArgMaxWithValue(axis=1)(e_score) # [bsz], [bsz]
+            match_score = mindspore.ops.GatherD(batch[2], 1, idx.unsqueeze(-1)).squeeze().tolist()
             count += len(match_score)
             correct += sum(match_score)
             for i in range(len(match_score)):

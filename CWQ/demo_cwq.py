@@ -38,7 +38,7 @@ def test(args):
     logging.info("Create model.........")
     model = GFC(args, ent2id, rel2id)
     if not args.ckpt == None:
-        model.load_state_dict(torch.load(args.ckpt))
+        model.load_state_dict(mindspore.load_checkpoint(args.ckpt))
     model = model.to(device)
 
     t_total = len(train_loader) * args.num_epoch

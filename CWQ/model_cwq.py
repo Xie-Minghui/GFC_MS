@@ -58,14 +58,14 @@ class GFC(nn.Cell):
         q_word_h_hop = q_word_h
         for t in range(self.num_steps):
             h_key = self.step_encoders[t](q_word_h_hop)
-            q_logits = torch.matmul(h_key, q_word_h.transpose(-1,
+            q_logits = mindspore.ops.MatMul(h_key, q_word_h.transpose(-1,
                                                                 -2))  # [bsz, max_q, dim_h] * [bsz, dim_h, max_q] = [bsz, max_q, max_q]
             q_logits = q_logits.transpose(-1, -2)
 
-            q_dist = torch.softmax(q_logits, 2)  # [bsz, max_q, max_q]
+            q_dist = mindspore.nn.Softmax()(q_logits, 2)  # [bsz, max_q, max_q]
             q_dist = q_dist * questions['attention_mask'].float().unsqueeze(1)  # [bsz, max_q, max_q]*[bsz, max_q]
-            q_dist = q_dist / (torch.sum(q_dist, dim=2, keepdim=True) + 1e-6)  # [bsz, max_q, max_q]
-            hop_ctx = torch.matmul(q_dist, q_word_h_hop)
+            q_dist = q_dist / (mindspore.ops.ReduceSum(q_dist, dim=2, keepdim=True) + 1e-6)  # [bsz, max_q, max_q]
+            hop_ctx = mindspore.ops.MatMul(q_dist, q_word_h_hop)
             if t == 0:
                 z = 0
             else:
@@ -76,17 +76,17 @@ class GFC(nn.Cell):
                 q_word_h_hop = q_word_h + hop_ctx + z*q_word_h_dist_ctx[-1]# [bsz, max_q, max_q]*[bsz, max_q, dim_h] = [bsz, max_q, dim_h]
             q_word_h_dist_ctx.append(hop_ctx + z*q_word_h_dist_ctx[-1])
 
-            q_word_att = torch.sum(q_dist, dim=1, keepdim=True)  # [bsz, max_q,1]
-            q_word_att = torch.softmax(q_word_att, 2)
+            q_word_att = mindspore.ops.ReduceSum(q_dist, dim=1, keepdim=True)  # [bsz, max_q,1]
+            q_word_att = mindspore.nn.Softmax(axis=2)(q_word_att)
             q_word_att = q_word_att * questions['attention_mask'].float().unsqueeze(1)  # [bsz, 1, max_q]*[bsz, max_q]
-            q_word_att = q_word_att / (torch.sum(q_word_att, dim=2, keepdim=True) + 1e-6)  # [bsz, max_q, max_q]
+            q_word_att = q_word_att / (mindspore.ops.ReduceSum(q_word_att, dim=2, keepdim=True) + 1e-6)  # [bsz, max_q, max_q]
             word_attns.append(q_word_att)  # bsz,1,q_max
             ctx_h = (q_word_h_hop.transpose(-1, -2) @ q_word_att.transpose(-1, -2)).squeeze(
                 2)  # [bsz, dim_h, max_q] * [bsz, max_q,1]
 
             ctx_h_list.append(ctx_h) 
             rel_logit = self.rel_classifier(ctx_h)  # [bsz, num_relations]
-            rel_dist = torch.sigmoid(rel_logit)
+            rel_dist = mindspore.ops.Sigmoid()(rel_logit)
             rel_probs.append(rel_dist)
 
             new_e = []
@@ -106,13 +106,13 @@ class GFC(nn.Cell):
 
             ent_probs.append(last_e)
 
-        hop_res = torch.stack(ent_probs, dim=1)  # [bsz, num_hop, num_ent]
-        ctx_h_history = torch.stack(ctx_h_list, dim=2)  # [bsz, dim_h, num_hop]
+        hop_res = mindspore.ops.Stack(ent_probs, dim=1)  # [bsz, num_hop, num_ent]
+        ctx_h_history = mindspore.ops.Stack(ctx_h_list, dim=2)  # [bsz, dim_h, num_hop]
 
         hop_logit = self.hop_att_layer(ctx_h_history.transpose(-1, -2))  # bsz, num_hop, 1
-        hop_attn = torch.softmax(hop_logit.transpose(-1, -2), 2).transpose(-1, -2)  # bsz, num_hop, 1
+        hop_attn = mindspore.nn.Softmax(axis=2)(hop_logit.transpose(-1, -2)).transpose(-1, -2)  # bsz, num_hop, 1
 
-        last_e = torch.sum(hop_res * hop_attn, dim=1)  # [bsz, num_ent]
+        last_e = mindspore.ops.ReduceSum(hop_res * hop_attn, dim=1)  # [bsz, num_ent]
 
         if not self.training:
             return {
@@ -124,6 +124,6 @@ class GFC(nn.Cell):
             }
         else:
             weight = answers * 9 + 1 
-            loss = torch.sum(entity_range * weight * P.Pow()(last_e - answers, 2)) / torch.sum(entity_range * weight)
+            loss = mindspore.ops.ReduceSum(entity_range * weight * P.Pow()(last_e - answers, 2)) / mindspore.ops.ReduceSum(entity_range * weight)
 
             return {'loss': loss}
