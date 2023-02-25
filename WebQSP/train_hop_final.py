@@ -36,7 +36,7 @@ setproctitle.setproctitle("GFC_WSP")
 
 def train(args):
     device = 'cuda'
-    path_abs = '/YourPath/GFC'
+    path_abs = '/root/Project/GFC'
     input_dir = path_abs + '/' + args.input_dir
     # input_dir = args.input_dir
     print(input_dir)

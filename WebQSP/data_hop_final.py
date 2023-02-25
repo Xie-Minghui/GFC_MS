@@ -4,11 +4,8 @@ import os
 import mindspore.ops.operations as P
 import pickle
 from collections import defaultdict
-# from transformers import AutoTokenizer
 from transformers import BertTokenizer, RobertaTokenizer
 from utils.misc import invert_dict
-# import sys
-# sys.path.append('Experiments')
 
 def collate(batch):
     batch = list(zip(*batch))
@@ -50,9 +47,9 @@ class DataLoader(mindspore.dataset):
         print('Reading questions from {}'.format(fn))
         try:
             if bert_name == "bert-base-uncased":
-                self.tokenizer = BertTokenizer.from_pretrained('/YourPath/bert-base-uncased')
+                self.tokenizer = BertTokenizer.from_pretrained('/root/Pretrained/bert-base-uncased')
             elif bert_name == "roberta-base":
-                self.tokenizer = RobertaTokenizer.from_pretrained('/YourPath/roberta-base')
+                self.tokenizer = RobertaTokenizer.from_pretrained('/root/Pretrained/roberta-base')
             else:
                 raise ValueError("please input the right name of pretrained model")
         except ValueError as e:

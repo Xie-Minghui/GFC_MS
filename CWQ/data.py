@@ -53,9 +53,9 @@ class DataLoader(mindspore.dataset):
         # self.tokenizer = AutoTokenizer.from_pretrained(bert_name)
         try:
             if bert_name == "bert-base-uncased":
-                self.tokenizer = BertTokenizer.from_pretrained('/YourPath/bert-base-uncased')
+                self.tokenizer = BertTokenizer.from_pretrained('/root/Pretrained/bert-base-uncased')
             elif bert_name == "roberta-base":
-                self.tokenizer = RobertaTokenizer.from_pretrained('/YourPath/roberta-base')
+                self.tokenizer = RobertaTokenizer.from_pretrained('/root/Pretrained/roberta-base')
             else:
                 raise ValueError("please input the right name of pretrained model")
         except ValueError as e:
