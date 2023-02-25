@@ -5,6 +5,9 @@ import pickle
 import numpy as np
 import math
 from mindspore.nn.Optimizer import Optimizer
+import mindspore
+import mindspore.nn as nn
+import mindspore.ops.operations as P
 import transformers
 
 DUMMY_RELATION = 'DUMMY_RELATION'
@@ -187,8 +190,8 @@ class RAdam(Optimizer):
 
                 if len(state) == 0:
                     state['step'] = 0
-                    state['exp_avg'] = torch.zeros_like(p_data_fp32)
-                    state['exp_avg_sq'] = torch.zeros_like(p_data_fp32)
+                    state['exp_avg'] = mindspore.zeros_like(p_data_fp32)
+                    state['exp_avg_sq'] = mindspore.zeros_like(p_data_fp32)
                 else:
                     state['exp_avg'] = state['exp_avg'].type_as(p_data_fp32)
                     state['exp_avg_sq'] = state['exp_avg_sq'].type_as(p_data_fp32)

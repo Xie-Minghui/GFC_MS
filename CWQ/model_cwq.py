@@ -96,7 +96,7 @@ class GFC(nn.Cell):
                 rel_p = rel_dist[b:b + 1, rel]  # [1, #tri]
                 obj_p = sub_p * rel_p
                 new_e.append(
-                    torch.index_add(torch.zeros(1, self.num_ents).to(device), 1, obj, obj_p))
+                    nn.index_add(nn.zeros(1, self.num_ents).to(device), 1, obj, obj_p))
             last_e = P.Concat(0)(new_e)
 
             # reshape >1 scores to 1 in a differentiable way

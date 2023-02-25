@@ -8,8 +8,9 @@ path_abs = os.path.abspath(os.path.join(os.getcwd(), '../'))
 # path_abs = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
 print(path_abs)
 import time
-import torch
-import torch.nn as nn
+import mindspore
+import mindspore.nn as nn
+import mindspore.ops.operations as P
 import argparse
 import numpy as np
 from utils.misc import MetricLogger, batch_device
@@ -23,7 +24,6 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)-8s %(me
 logFormatter = logging.Formatter('%(asctime)s %(levelname)-8s %(message)s')
 rootLogger = logging.getLogger()
 
-torch.set_num_threads(1) # avoid using multiple cpus
 
 import setproctitle
 
@@ -31,7 +31,7 @@ setproctitle.setproctitle("GFC_CWQ")
 
 
 def train(args):
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    device = 'cuda'
     path_abs = '/root/Project/GFC'
     args.input_dir = path_abs + '/' + args.input_dir
     ent2id, rel2id, train_loader, val_loader, test_loader = load_data(args.input_dir, args.bert_name, args.batch_size, args.rev)
@@ -106,7 +106,6 @@ def train(args):
             val_acc = validate(args, model, val_loader, device)
             test_acc = validate(args, model, test_loader, device)
             logging.info('val acc: {:.4f}, test acc: {:.4f}'.format(val_acc, test_acc))
-            # torch.save(model.state_dict(), os.path.join(args.save_dir, 'model-{}-{:.4f}.pt'.format(epoch, val_acc)))
 
 # python train_final.py --input_dir data/CWQ --save_dir checkpoints/CWQ --rev
 def main():
@@ -144,10 +143,6 @@ def main():
     for k, v in vars(args).items():
         logging.info(k+':'+str(v))
 
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
-    # set random seed
-    torch.manual_seed(args.seed)
     np.random.seed(args.seed)
 
 

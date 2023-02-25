@@ -29,7 +29,6 @@ If you find this code useful in your research, please cite
 ```
 
 ## dependencies
-- pytorch>=1.2.0
 - [transformers](https://github.com/huggingface/transformers)
 - tqdm
 - nltk

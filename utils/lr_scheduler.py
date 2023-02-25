@@ -1,8 +1,9 @@
 import math
 import numpy as np
 import warnings
-from torch.optim.optimizer import Optimizer
-from torch.optim.lr_scheduler import LambdaLR
+import mindspore.nn as nn
+from nn.optimizer import Optimizer
+from nn.lr_scheduler import LambdaLR
 
 def get_constant_schedule(optimizer, last_epoch=-1):
     """ Create a schedule with a constant learning rate.
@@ -244,14 +245,6 @@ class ReduceLROnPlateau(object):
             normal operation after lr has been reduced.
         min_lr: lower bound on the learning rate.
 
-
-    Example:
-        >>> optimizer = torch.optim.SGD(model.parameters(), lr=0.1, momentum=0.9)
-        >>> scheduler = ReduceLROnPlateau(optimizer, 'min')
-        >>> for epoch in range(10):
-        >>>     train(...)
-        >>>     val_acc, val_loss = validate(...)
-        >>>     scheduler.epoch_step(val_loss, epoch)
     """
 
     def __init__(self, optimizer, mode='min', factor=0.1, patience=10,

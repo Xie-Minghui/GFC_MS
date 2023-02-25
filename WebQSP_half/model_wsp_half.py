@@ -4,6 +4,7 @@ import mindspore.ops.operations as P
 import math
 from transformers import AutoModel
 from transformers import RobertaModel, BertModel
+from mindspore import Tensor, SparseTensor
 
 
 class GFC(nn.Cell):
@@ -16,12 +17,12 @@ class GFC(nn.Cell):
         Tsize = len(triples)
         Esize = len(ent2id)
         idx = mindspore.Tensor([i for i in range(Tsize)])
-        self.Msubj = torch.sparse.FloatTensor(
-            mindspore.ops.Stack((idx, triples[:,0])), torch.FloatTensor([1] * Tsize), torch.Size([Tsize, Esize]))
-        self.Mobj = torch.sparse.FloatTensor(
-            mindspore.ops.Stack((idx, triples[:,2])), torch.FloatTensor([1] * Tsize), torch.Size([Tsize, Esize]))
-        self.Mrel = torch.sparse.FloatTensor(
-            mindspore.ops.Stack((idx, triples[:,1])), torch.FloatTensor([1] * Tsize), torch.Size([Tsize, num_relations]))
+        self.Msubj = SparseTensor(
+            mindspore.ops.Stack((idx, triples[:,0])), mindspore.Tensor([1] * Tsize, mindspore.float32), P.size([Tsize, Esize]))
+        self.Mobj = SparseTensor(
+            mindspore.ops.Stack((idx, triples[:,2])), mindspore.Tensor([1] * Tsize, mindspore.float32), P.size([Tsize, Esize]))
+        self.Mrel = SparseTensor(
+            mindspore.ops.Stack((idx, triples[:,1])), mindspore.Tensor([1] * Tsize, mindspore.float32), P.size([Tsize, num_relations]))
         print('triple size: {}'.format(Tsize))
         try:
             if args.bert_name == "bert-base-uncased":
@@ -45,8 +46,8 @@ class GFC(nn.Cell):
         ])
 
     def follow(self, e, r):
-        x = torch.sparse.mm(self.Msubj, e.t()) * torch.sparse.mm(self.Mrel, r.t())
-        return torch.sparse.mm(self.Mobj.t(), x).t() # [bsz, Esize]
+        x = P.sparse.mm(self.Msubj, e.t()) * P.sparse.mm(self.Mrel, r.t())
+        return P.sparse.mm(self.Mobj.t(), x).t() # [bsz, Esize]
 
     def construct(self, heads, questions, answers=None, entity_range=None):
         q = self.bert_encoder(**questions)
@@ -72,21 +73,21 @@ class GFC(nn.Cell):
             if t == 0:
                 z = 0
             else:
-                z = self.high_way(q_word_h_dist_ctx[-1])
+                z = self.high_way(q_word_h_dist_ctx[-1]) 
             if t == 0:
                 q_word_h_hop = q_word_h + hop_ctx
             else:
                 q_word_h_hop = q_word_h + hop_ctx + z*q_word_h_dist_ctx[-1]# [bsz, max_q, max_q]*[bsz, max_q, dim_h] = [bsz, max_q, dim_h]
             q_word_h_dist_ctx.append(hop_ctx + z*q_word_h_dist_ctx[-1])
 
-            q_word_att = mindspore.ops.ReduceSum(q_dist, dim=1, keepdim=True)  # [bsz, 1, max_q]
+            q_word_att = mindspore.ops.ReduceSum(q_dist, dim=1, keepdim=True)  # [bsz, 1, max_q]  # 2改为1
             q_word_att = mindspore.nn.Softmax(axis=2)(q_word_att)
             q_word_att = q_word_att * questions['attention_mask'].float().unsqueeze(1)  # [bsz, 1, max_q]*[bsz, max_q]
             q_word_att = q_word_att / (mindspore.ops.ReduceSum(q_word_att, dim=2, keepdim=True) + 1e-6)  # [bsz, max_q, max_q]
             word_attns.append(q_word_att)  # bsz,1,q_max
             ctx_h = (q_word_h_hop.transpose(-1,-2) @ q_word_att.transpose(-1,-2)).squeeze(2)  # [bsz, dim_h, max_q] * [bsz, max_q,1]
 
-            ctx_h_list.append(ctx_h) 
+            ctx_h_list.append(ctx_h)
 
             rel_logit = self.rel_classifier(ctx_h) # [bsz, num_relations]
             rel_dist = mindspore.ops.Sigmoid()(rel_logit)
@@ -105,6 +106,7 @@ class GFC(nn.Cell):
         ctx_h_history = mindspore.ops.Stack(ctx_h_list, dim=2)  # [bsz, dim_h, num_hop]
         hop_logit = self.hop_att_layer(ctx_h_history.transpose(-1, -2))  # bsz, num_hop, 1
         hop_attn = mindspore.nn.Softmax(axis=2)(hop_logit.transpose(-1, -2)).transpose(-1, -2)  # bsz, num_hop, 1
+
         last_e = mindspore.ops.ReduceSum(hop_res * hop_attn, dim=1) # [bsz, num_ent]
 
         if not self.training:
@@ -116,7 +118,7 @@ class GFC(nn.Cell):
                 'hop_attn': P.ReduceMean(2)(hop_attn)
             }
         else:
-            weight = answers * 9 + 1
+            weight = answers * 9 + 1 
             loss = mindspore.ops.ReduceSum(entity_range * weight * P.Pow()(last_e - answers, 2)) / mindspore.ops.ReduceSum(entity_range * weight)
 
             return {'loss': loss}

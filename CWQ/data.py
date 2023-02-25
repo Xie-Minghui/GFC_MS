@@ -41,7 +41,7 @@ class Dataset(mindspore.dataset.GeneratorDataset):
     def toOneHot(self, indices):
         indices = mindspore.Tensor(indices)
         vec_len = len(self.ent2id)
-        one_hot = torch.FloatTensor(vec_len)
+        one_hot = nn.FloatTensor(vec_len)
         one_hot.zero_()
         one_hot.scatter_(0, indices, 1)
         return one_hot

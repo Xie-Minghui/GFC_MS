@@ -7,9 +7,9 @@ sys.path.append(os.path.abspath(os.path.join(os.getcwd(), '../')))
 # path_abs = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
 path_abs = os.path.abspath(os.path.join(os.getcwd(), '../'))
 print(path_abs)
-import torch
-import torch.optim as optim
-import torch.nn as nn
+import mindspore
+import mindspore.nn as nn
+import mindspore.ops.operations as P
 import numpy as np
 import argparse
 import shutil
@@ -27,10 +27,9 @@ rootLogger = logging.getLogger()
 import setproctitle
 setproctitle.setproctitle("GFC_MetaQA")
 
-torch.set_num_threads(1) # avoid using multiple cpus
 
 def train(args):
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    device = 'cuda'
     args.input_dir = path_abs + '/' + args.input_dir
     # args.glove_pt = path_abs + '/' + args.glove_pt
     args.glove_pt = '/root/Project/GFC/data/glove/glove.840B.300d.pickle'
@@ -50,7 +49,7 @@ def train(args):
     logging.info("Create model.........")
     pretrained = load_glove(args.glove_pt, vocab['id2word'])
     model = GFC(args, args.dim_word, args.dim_hidden, vocab)
-    model.word_embeddings.weight.data = torch.Tensor(pretrained) 
+    model.word_embeddings.weight.data = mindspore.Tensor(pretrained) 
     if not args.ckpt == None:
         missing, unexpected = model.load_state_dict(mindspore.load_checkpoint(args.ckpt), strict=False)
         if missing:
@@ -63,16 +62,16 @@ def train(args):
     model.kg.Mrel = model.kg.Mrel.to(device)
 
     if args.opt == 'adam':
-        optimizer = optim.Adam(model.parameters(), args.lr, weight_decay=args.weight_decay)
+        optimizer = nn.Adam(model.parameters(), args.lr, weight_decay=args.weight_decay)
     elif args.opt == 'radam':
         optimizer = RAdam(model.parameters(), args.lr, weight_decay=args.weight_decay)
     elif args.opt == 'sgd':
-        optimizer = optim.SGD(model.parameters(), args.lr, weight_decay=args.weight_decay)
+        optimizer = nn.SGD(model.parameters(), args.lr, weight_decay=args.weight_decay)
     elif args.opt == 'adagrad':
-        optimizer = optim.Adagrad(model.parameters(), args.lr, weight_decay=args.weight_decay)
+        optimizer = nn.Adagrad(model.parameters(), args.lr, weight_decay=args.weight_decay)
     else:
         raise NotImplementedError
-    scheduler = optim.lr_scheduler.MultiStepLR(optimizer=optimizer, milestones=[3], gamma=0.1)
+    scheduler = nn.lr_scheduler.MultiStepLR(optimizer=optimizer, milestones=[3], gamma=0.1)
 
     meters = MetricLogger(delimiter="  ")
     logging.info("Start training........")
@@ -119,11 +118,10 @@ def train(args):
             logging.info(acc)
             logging.info(acc_hop_att)
             scheduler.step()
-            torch.save(model.state_dict(), os.path.join(args.save_dir, 'model_epoch-{}_acc-{:.4f}.pt'.format(epoch, acc['all'])))
 
 
 def test(args):
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    device = 'cuda'
     args.input_dir = path_abs + '/' + args.input_dir
     # args.glove_pt = path_abs + '/' + args.glove_pt
     args.glove_pt = '/root/Project/GFC/data/glove/glove.840B.300d.pickle'
@@ -143,7 +141,7 @@ def test(args):
     logging.info("Create model.........")
     pretrained = load_glove(args.glove_pt, vocab['id2word'])
     model = GFC(args, args.dim_word, args.dim_hidden, vocab)
-    model.word_embeddings.weight.data = torch.Tensor(pretrained)
+    model.word_embeddings.weight.data = mindspore.Tensor(pretrained)
     if not args.ckpt == None:
         missing, unexpected = model.load_state_dict(mindspore.load_checkpoint(args.ckpt), strict=False)
         if missing:
@@ -198,10 +196,6 @@ def main():
         args.num_epoch = int(args.num_epoch / args.ratio)
         logging.info('Due to partial training examples, the actual num_epoch is set to {}'.format(args.num_epoch))
 
-    torch.backends.cudnn.deterministic = True 
-    torch.backends.cudnn.benchmark = False
-    # set random seed
-    torch.manual_seed(args.seed)
     np.random.seed(args.seed)
 
     train(args)

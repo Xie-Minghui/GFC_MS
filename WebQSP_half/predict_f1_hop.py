@@ -1,6 +1,7 @@
 import os
-import torch
-import torch.nn as nn
+import mindspore
+import mindspore.nn as nn
+import mindspore.ops.operations as P
 import argparse
 from tqdm import tqdm
 from collections import defaultdict
@@ -19,66 +20,65 @@ def validate(args, model, data, device, verbose=False, thresholds=0.98):
     num_answers_total = 0  # TP + FN
     num_answers_pred_total = 0  # TP + FP
     TP_total = 0
-    with torch.no_grad():
-        for batch in tqdm(data, total=len(data)):
-            outputs = model(*batch_device(batch[:-1], device)) # [bsz, Esize]
-            questions, topic_entities, answers, entity_range, hops = batch
-            labels = torch.nonzero(answers)
-            answer_list = [[] for _ in range(questions.shape[0])]
-            for x in labels:
-                answer_list[x[0].item()].append(x[1].item())  
-            num_answers = sum(len(x) for x in answer_list)
-            num_answers_total += num_answers
-            e_score = outputs['e_score'].cpu()
-            e_score_answers = mindspore.numpy.where(e_score >= thresholds)
-            num_pred = e_score_answers[0].shape[0]
-            num_answers_pred_total += num_pred
+    for batch in tqdm(data, total=len(data)):
+        outputs = model(*batch_device(batch[:-1], device)) # [bsz, Esize]
+        questions, topic_entities, answers, entity_range, hops = batch
+        labels = mindspore.nonzero(answers)
+        answer_list = [[] for _ in range(questions.shape[0])]
+        for x in labels:
+            answer_list[x[0].item()].append(x[1].item())  
+        num_answers = sum(len(x) for x in answer_list)
+        num_answers_total += num_answers
+        e_score = outputs['e_score'].cpu()
+        e_score_answers = mindspore.numpy.where(e_score >= thresholds)
+        num_pred = e_score_answers[0].shape[0]
+        num_answers_pred_total += num_pred
 
-            TP = 0
-            for i in range(e_score_answers[0].shape[0]):
-                if e_score_answers[1][i].item() in answer_list[e_score_answers[0][i].item()]:
-                    TP += 1
-            TP_total += TP
-            scores, idx = mindspore.ops.ArgMaxWithValue(axis = 1)(e_score) # [bsz], [bsz]
-            match_score = mindspore.ops.GatherD(batch[2], 1, idx.unsqueeze(-1)).squeeze().tolist()
-            count += len(match_score)
-            correct += sum(match_score)
+        TP = 0
+        for i in range(e_score_answers[0].shape[0]):
+            if e_score_answers[1][i].item() in answer_list[e_score_answers[0][i].item()]:
+                TP += 1
+        TP_total += TP
+        scores, idx = mindspore.ops.ArgMaxWithValue(axis = 1)(e_score) # [bsz], [bsz]
+        match_score = mindspore.ops.GatherD(batch[2], 1, idx.unsqueeze(-1)).squeeze().tolist()
+        count += len(match_score)
+        correct += sum(match_score)
+        for i in range(len(match_score)):
+            h_pred = outputs['hop_attn'][i].argmax().item()
+            h = hops[i] - 1 
+            hop_count[h].append(match_score[i])
+            hop_att_count[h] += (h == h_pred)
+            hop_pred_count[h_pred] += 1
+
+
+        if verbose:
+            answers = batch[2]
             for i in range(len(match_score)):
-                h_pred = outputs['hop_attn'][i].argmax().item()
-                h = hops[i] - 1 
-                hop_count[h].append(match_score[i])
-                hop_att_count[h] += (h == h_pred)
-                hop_pred_count[h_pred] += 1
+                if match_score[i] == 0:
+                    print('================================================================')
+                    question_ids = batch[1]['input_ids'][i].tolist()
+                    question_tokens = data.tokenizer.convert_ids_to_tokens(question_ids)
+                    print(' '.join(question_tokens))
+                    topic_id = batch[0][i].argmax(0).item()
+                    print('> topic entity: {}'.format(data.id2ent[topic_id]))
+                    for t in range(2):
+                        print('>>>>>>> step {}'.format(t))
+                        tmp = ' '.join(['{}: {:.3f}'.format(x, y) for x,y in 
+                            zip(question_tokens, outputs['word_attns'][t][i].tolist())])
+                        print('> Attention: ' + tmp)
+                        print('> Relation:')
+                        rel_idx = outputs['rel_probs'][t][i].gt(0.9).nonzero().squeeze(1).tolist()
+                        for x in rel_idx:
+                            print('  {}: {:.3f}'.format(data.id2rel[x], outputs['rel_probs'][t][i][x].item()))
 
-
-            if verbose:
-                answers = batch[2]
-                for i in range(len(match_score)):
-                    if match_score[i] == 0:
-                        print('================================================================')
-                        question_ids = batch[1]['input_ids'][i].tolist()
-                        question_tokens = data.tokenizer.convert_ids_to_tokens(question_ids)
-                        print(' '.join(question_tokens))
-                        topic_id = batch[0][i].argmax(0).item()
-                        print('> topic entity: {}'.format(data.id2ent[topic_id]))
-                        for t in range(2):
-                            print('>>>>>>> step {}'.format(t))
-                            tmp = ' '.join(['{}: {:.3f}'.format(x, y) for x,y in 
-                                zip(question_tokens, outputs['word_attns'][t][i].tolist())])
-                            print('> Attention: ' + tmp)
-                            print('> Relation:')
-                            rel_idx = outputs['rel_probs'][t][i].gt(0.9).nonzero().squeeze(1).tolist()
-                            for x in rel_idx:
-                                print('  {}: {:.3f}'.format(data.id2rel[x], outputs['rel_probs'][t][i][x].item()))
-
-                            print('> Entity: {}'.format('; '.join([data.id2ent[_] for _ in outputs['ent_probs'][t][i].gt(0.8).nonzero().squeeze(1).tolist()])))
-                        print('----')
-                        print('> max is {}'.format(data.id2ent[idx[i].item()]))
-                        print('> golden: {}'.format('; '.join([data.id2ent[_] for _ in answers[i].gt(0.9).nonzero().squeeze(1).tolist()])))
-                        print('> prediction: {}'.format('; '.join([data.id2ent[_] for _ in e_score[i].gt(0.9).nonzero().squeeze(1).tolist()])))
-                        print(' '.join(question_tokens))
-                        print(outputs['hop_attn'][i].tolist())
-                        embed()
+                        print('> Entity: {}'.format('; '.join([data.id2ent[_] for _ in outputs['ent_probs'][t][i].gt(0.8).nonzero().squeeze(1).tolist()])))
+                    print('----')
+                    print('> max is {}'.format(data.id2ent[idx[i].item()]))
+                    print('> golden: {}'.format('; '.join([data.id2ent[_] for _ in answers[i].gt(0.9).nonzero().squeeze(1).tolist()])))
+                    print('> prediction: {}'.format('; '.join([data.id2ent[_] for _ in e_score[i].gt(0.9).nonzero().squeeze(1).tolist()])))
+                    print(' '.join(question_tokens))
+                    print(outputs['hop_attn'][i].tolist())
+                    embed()
     acc = correct / count
     acc_hop = ('real hop accuracy: 1-hop {} (total {}), 2-hop {} (total {})'.format(
         sum(hop_count[0]) / (len(hop_count[0]) + 0.1),

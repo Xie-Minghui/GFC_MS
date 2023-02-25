@@ -4,6 +4,7 @@ import mindspore.ops.operations as P
 import math
 from transformers import AutoModel
 from transformers import RobertaModel, BertModel
+from mindspore import Tensor, SparseTensor
 
 
 class GFC(nn.Cell):
@@ -16,12 +17,12 @@ class GFC(nn.Cell):
         Tsize = len(triples)
         Esize = len(ent2id)
         idx = mindspore.Tensor([i for i in range(Tsize)])
-        self.Msubj = torch.sparse.FloatTensor(
-            mindspore.ops.Stack((idx, triples[:,0])), mindspore.Tensor([1] * Tsize, mindspore.float32), torch.Size([Tsize, Esize]))
-        self.Mobj = torch.sparse.FloatTensor(
-            mindspore.ops.Stack((idx, triples[:,2])), mindspore.Tensor([1] * Tsize, mindspore.float32), torch.Size([Tsize, Esize]))
-        self.Mrel = torch.sparse.FloatTensor(
-            mindspore.ops.Stack((idx, triples[:,1])), mindspore.Tensor([1] * Tsize, mindspore.float32), torch.Size([Tsize, num_relations]))
+        self.Msubj = SparseTensor(
+            mindspore.ops.Stack((idx, triples[:,0])), mindspore.Tensor([1] * Tsize, mindspore.float32), P.size([Tsize, Esize]))
+        self.Mobj = SparseTensor(
+            mindspore.ops.Stack((idx, triples[:,2])), mindspore.Tensor([1] * Tsize, mindspore.float32), P.size([Tsize, Esize]))
+        self.Mrel = SparseTensor(
+            mindspore.ops.Stack((idx, triples[:,1])), mindspore.Tensor([1] * Tsize, mindspore.float32), P.size([Tsize, num_relations]))
         print('triple size: {}'.format(Tsize))
         try:
             if args.bert_name == "bert-base-uncased":
@@ -45,8 +46,8 @@ class GFC(nn.Cell):
         ])
 
     def follow(self, e, r):
-        x = torch.sparse.mm(self.Msubj, e.t()) * torch.sparse.mm(self.Mrel, r.t())
-        return torch.sparse.mm(self.Mobj.t(), x).t() # [bsz, Esize]
+        x = P.sparse.mm(self.Msubj, e.t()) * P.sparse.mm(self.Mrel, r.t())
+        return P.sparse.mm(self.Mobj.t(), x).t() # [bsz, Esize]
 
     def construct(self, heads, questions, answers=None, entity_range=None):
         q = self.bert_encoder(**questions)

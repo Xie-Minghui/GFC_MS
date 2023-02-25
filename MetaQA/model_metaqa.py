@@ -5,6 +5,7 @@ import math
 
 from utils.BiGRU import GRU, BiGRU
 from .Knowledge_graph import KnowledgeGraph
+from mindspore import Tensor, SparseTensor
 
 class GFC(nn.Cell):
     def __init__(self, args, dim_word, dim_hidden, vocab):
@@ -40,13 +41,13 @@ class GFC(nn.Cell):
         ])
 
     def follow(self, e, r):
-        x = torch.sparse.mm(self.kg.Msubj, e.t()) * torch.sparse.mm(self.kg.Mrel, r.t())
-        return torch.sparse.mm(self.kg.Mobj.t(), x).t()  # [bsz, Esize]
+        x = (self.kg.Msubj, e.t()) * (self.kg.Mrel, r.t())
+        return (self.kg.Mobj.t(), x).t()  # [bsz, Esize]
 
     def sequence_mask(self, lengths, max_len=16):
         batch_size = lengths.numel()
         # max_len = max_len or lengths.max()
-        return (torch.arange(0, max_len, device=lengths.device)
+        return (mindspore.arange(0, max_len, device=lengths.device)
                 .type_as(lengths)
                 .unsqueeze(0).expand(batch_size, max_len)
                 .lt(lengths.unsqueeze(1)))
@@ -115,8 +116,8 @@ class GFC(nn.Cell):
                 curr_rel = mindspore.ops.Argmax(axis=1)(rel_probs[-1])
                 prev_prev_ent_prob = ent_probs[-2] if len(ent_probs) >= 2 else e_s
                 # in our vocabulary, indices of inverse relations are adjacent. e.g., director:0, director_inv:1
-                m = torch.zeros((bsz, 1)).to(device)
-                m[(P.Abs()(prev_rel - curr_rel) == 1) & (torch.remainder(torch.min(prev_rel, curr_rel), 2) == 0)] = 1
+                m = P.zeros((bsz, 1)).to(device)
+                m[(P.Abs()(prev_rel - curr_rel) == 1) & (P.remainder(P.min(prev_rel, curr_rel), 2) == 0)] = 1
                 ent_m = m.float() * prev_prev_ent_prob.gt(0.9).float()
                 last_e = (1 - ent_m) * last_e
 
@@ -148,7 +149,7 @@ class GFC(nn.Cell):
             last_e = mindspore.ops.ReduceSum(hop_res * hop_attn, dim=1)  # [bsz, num_ent]
             # Distance loss
             weight = answers * 9 + 1
-            loss_score = torch.mean(weight * P.Pow()(last_e - answers, 2))
+            loss_score = P.mean(weight * P.Pow()(last_e - answers, 2))
             loss = {'loss_score': loss_score}
 
             if self.aux_hop:

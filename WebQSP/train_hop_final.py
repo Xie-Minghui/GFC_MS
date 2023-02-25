@@ -8,7 +8,6 @@ sys.path.append(os.path.abspath(os.path.join(os.getcwd(), '../')))
 path_abs = os.path.abspath(os.path.join(os.getcwd(), '../'))
 print(path_abs)
 import mindspore
-import torch.optim as optim
 import mindspore.nn as nn
 import argparse
 import shutil
@@ -26,8 +25,6 @@ import logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)-8s %(message)s')
 logFormatter = logging.Formatter('%(asctime)s %(levelname)-8s %(message)s')
 rootLogger = logging.getLogger()
-
-# torch.set_num_threads(1)  # avoid using multiple cpus
 
 import setproctitle
 
@@ -68,11 +65,11 @@ def train(args):
     ]
     # optimizer_grouped_parameters = [{'params':model.parameters(), 'weight_decay': args.weight_decay, 'lr': args.lr}]
     if args.opt == 'adam':
-        optimizer = optim.Adam(optimizer_grouped_parameters)
+        optimizer = nn.Adam(optimizer_grouped_parameters)
     elif args.opt == 'radam':
         optimizer = RAdam(optimizer_grouped_parameters)
     elif args.opt == 'sgd':
-        optimizer = optim.SGD(optimizer_grouped_parameters)
+        optimizer = nn.SGD(optimizer_grouped_parameters)
     else:
         raise NotImplementedError
     args.warmup_steps = int(t_total * args.warmup_proportion)
@@ -124,8 +121,7 @@ def train(args):
             logging.info(acc)
             logging.info(acc_hop_att)
             logging.info(f1)
-            # torch.save(model.state_dict(), os.path.join(args.save_dir, 'model-{}-{:.4f}.pt'.format(epoch, acc)))
-
+            
 # python train_hop_final.py --input_dir data/WebQSP --save_dir checkpoints/WebQSP
 def main():
     parser = argparse.ArgumentParser()
@@ -160,8 +156,6 @@ def main():
     for k, v in vars(args).items():
         logging.info(k + ':' + str(v))
 
-    # torch.backends.cudnn.deterministic = True
-    # torch.backends.cudnn.benchmark = False
     # set random seed
     mindspore.set_seed(args.seed)
     np.random.seed(args.seed)
