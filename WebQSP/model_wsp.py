@@ -2,8 +2,10 @@ import mindspore
 import mindspore.nn as nn
 import mindspore.ops.operations as P
 import math
-from transformers import AutoModel
-from transformers import RobertaModel, BertModel
+import mindspore_hub as mshub
+from mindspore import contexts
+from mindspore import save_checkpoint, load_checkpoint,load_param_into_net
+import mindspore.dataset.transforms as transforms
 from mindspore import Tensor, SparseTensor
 
 
@@ -26,9 +28,11 @@ class GFC(nn.Cell):
         print('triple size: {}'.format(Tsize))
         try:
             if args.bert_name == "bert-base-uncased":
-                self.bert_encoder = BertModel.from_pretrained('/root/Pretrained/bert-base-uncased')
+                model = "mindspore/1.9/bertbase_cnnews128"
+                self.bert_encoder = mshub.load(model)
             elif args.bert_name == "roberta-base":
-                self.bert_encoder = RobertaModel.from_pretrained('/root/Pretrained/roberta-base')
+                model = "mindspore/1.9/bertbase_cnnews128"
+                self.bert_encoder = mshub.load(model)
             else:
                 raise ValueError("please input the right name of pretrained model")
         except ValueError as e:
@@ -46,7 +50,7 @@ class GFC(nn.Cell):
         ])
 
     def follow(self, e, r):
-        x = P.sparse.mm(self.Msubj, e.t()) * P.sparse.mm(self.Mrel, r.t())
+        x = P.sparse.mm(self.Msubj, e.t()) * P.sparse.mm(self.Mrel, r.t())  # todo 
         return P.sparse.mm(self.Mobj.t(), x).t() # [bsz, Esize]
 
     def construct(self, heads, questions, answers=None, entity_range=None):

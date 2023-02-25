@@ -4,7 +4,7 @@ import os
 import mindspore.ops.operations as P
 import pickle
 from collections import defaultdict
-from transformers import BertTokenizer, RobertaTokenizer
+import mindspore.dataset.text.BertTokenizer as BertTokenizer
 from utils.misc import invert_dict
 
 def collate(batch):

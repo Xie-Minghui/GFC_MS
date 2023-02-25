@@ -7,7 +7,6 @@ from IPython import embed
 
 
 def validate(args, model, data, device, verbose=False, thresholds=0.98):
-    model.eval()
     count = 0
     correct = 0
     hop_count = defaultdict(list)

@@ -8,7 +8,6 @@ from mindspore.nn.Optimizer import Optimizer
 import mindspore
 import mindspore.nn as nn
 import mindspore.ops.operations as P
-import transformers
 
 DUMMY_RELATION = 'DUMMY_RELATION'
 DUMMY_ENTITY = 'DUMMY_ENTITY'
@@ -21,10 +20,10 @@ def batch_device(batch, device):
     for x in batch:
         if isinstance(x, mindspore.Tensor):
             x = x.to(device)
-        elif isinstance(x, (dict, transformers.tokenization_utils_base.BatchEncoding)):
-            for k in x:
-                if isinstance(x[k], mindspore.Tensor):
-                    x[k] = x[k].to(device)
+        # elif isinstance(x, (dict, transformers.tokenization_utils_base.BatchEncoding)):
+        #     for k in x:
+        #         if isinstance(x[k], mindspore.Tensor):
+        #             x[k] = x[k].to(device)
         elif isinstance(x, (list, tuple)) and isinstance(x[0], mindspore.Tensor):
             x = list(map(lambda i: i.to(device), x))
         res.append(x)

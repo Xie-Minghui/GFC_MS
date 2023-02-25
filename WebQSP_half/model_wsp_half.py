@@ -2,9 +2,9 @@ import mindspore
 import mindspore.nn as nn
 import mindspore.ops.operations as P
 import math
-from transformers import AutoModel
-from transformers import RobertaModel, BertModel
 from mindspore import Tensor, SparseTensor
+import mindspore_hub as mshub
+from mindspore import context
 
 
 class GFC(nn.Cell):
@@ -26,9 +26,11 @@ class GFC(nn.Cell):
         print('triple size: {}'.format(Tsize))
         try:
             if args.bert_name == "bert-base-uncased":
-                self.bert_encoder = BertModel.from_pretrained('/root/Pretrained/bert-base-uncased')
+                model = "mindspore/1.9/bertbase_cnnews128"
+                self.bert_encoder = mshub.load(model)
             elif args.bert_name == "roberta-base":
-                self.bert_encoder = RobertaModel.from_pretrained('/root/Pretrained/roberta-base')
+                model = "mindspore/1.9/bertbase_cnnews128"
+                self.bert_encoder = mshub.load(model)
             else:
                 raise ValueError("please input the right name of pretrained model")
         except ValueError as e:

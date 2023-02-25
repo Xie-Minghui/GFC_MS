@@ -4,9 +4,8 @@ import os
 import mindspore.ops.operations as P
 import json
 import pickle
+import mindspore.dataset.text.BertTokenizer as BertTokenizer
 from collections import defaultdict
-# from transformers import AutoTokenizer
-from transformers import BertTokenizer, RobertaTokenizer
 from utils.misc import invert_dict
 
 

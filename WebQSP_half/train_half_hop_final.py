@@ -11,7 +11,6 @@ import mindspore
 import mindspore.nn as nn
 import mindspore.ops.operations as P
 import argparse
-import shutil
 from tqdm import tqdm
 import numpy as np
 import time
@@ -20,7 +19,7 @@ from utils.lr_scheduler import get_linear_schedule_with_warmup
 from WebQSP_half.data_half_hop import load_data
 from WebQSP_half.model_wsp_half import GFC
 from WebQSP.predict_f1_hop import validate
-from transformers import AdamW
+import mindspore.nn.AdamWeightDecay as AdamW 
 import logging
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)-8s %(message)s')

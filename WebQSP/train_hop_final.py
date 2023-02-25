@@ -19,7 +19,7 @@ from utils.lr_scheduler import get_linear_schedule_with_warmup
 from WebQSP.data_hop_final import load_data
 from WebQSP.model_wsp import GFC
 from WebQSP.predict_f1_hop import validate
-from transformers import AdamW
+import mindspore.nn.AdamWeightDecay as AdamW 
 import logging
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)-8s %(message)s')

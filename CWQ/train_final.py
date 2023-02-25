@@ -17,7 +17,7 @@ from utils.misc import MetricLogger, batch_device
 from CWQ.data import load_data
 from CWQ.model_cwq import GFC
 from CWQ.predict import validate
-from transformers import AdamW  # , get_linear_schedule_with_warmup
+import mindspore.nn.AdamWeightDecay as AdamW  # , get_linear_schedule_with_warmup
 from utils.lr_scheduler import get_linear_schedule_with_warmup
 import logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)-8s %(message)s')
