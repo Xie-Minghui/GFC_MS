@@ -29,6 +29,7 @@ If you find this code useful in your research, please cite
 ```
 
 ## dependencies
+- mindspores
 - [transformers](https://github.com/huggingface/transformers)
 - tqdm
 - nltk
@@ -51,37 +52,6 @@ You should preprocess MetaQA using MetaQA/preprocess.py
 
 ### [CompWebQ](https://drive.google.com/file/d/1ua7h88kJ6dECih6uumLeOIV9a3QNdP-g/view?usp=sharing)
 We use dataset processed by [NSM](https://github.com/RichardHGL/WSDM2021_NSM).
-
-## Demo
-To ensure the reproducibility, we write demo.py for all 4 main tasks.
-You can use pretrained model checkpoints to reproduce the results. You should put the checkpoints files into
-corresponding path.
-The checkpoints files are uploaded to [google drive](https://drive.google.com/drive/folders/1s0SwIALbgpJfaT800TEKwp8P2YOMc09A?usp=sharing).
-
-
-### WebQSP
-Enter the directory GFC/WebQSP, then input the following command.
-
-```shell
-python demo_wsp.py --input_dir data/WebQSP --save_dir checkpoints/WebQSP --ckpt checkpoints/WebQSP/model_wqsp.pt
-```
-### WebQSP_half
-Enter the directory GFC/WebQSP_half, then input the following command
-```shell
-python demo_half.py --input_dir data/WebQSP_half --save_dir checkpoints/WebQSP_half --ckpt checkpoints/WebQSP_half/model_wqsp_half.pt
-```
-
-### CompWebQ
-Enter the directory GFC/CWQ, then input the following command
-```shell
-python demo_cwq.py --input_dir data/CWQ --save_dir checkpoints/CWQ --ckpt checkpoints/CWQ/model_cwq.pt
-```
-
-### MetaQA
-Enter the directory GFC/CWQ, then input the following command
-```shell
-python demo_metaqa.py --input_dir data/Metaqa --save_dir checkpoints/Metaqa_ps --ckpt checkpoints/Metaqa/model_metaqa.pt
-```
 
 
 ## Experiments
